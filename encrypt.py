@@ -49,7 +49,7 @@ def write_note(note_directory: Path, code: str) -> Path:
         "All of your files have been encrypted.\n"
         "To unlock them, contact me with your encryption code at email@email.com.\n"
         f"Your encryption code is: {code}\n\n"
-        "Run decrypt.py with this code to restore the test files.\n"
+        "Use the decrypt command with this code to restore the test files.\n"
     )
     atomic_write(note_path, text.encode("utf-8"))
     return note_path

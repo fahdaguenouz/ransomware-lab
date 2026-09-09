@@ -1,107 +1,215 @@
 # Ransomware-Lab
 
-Ransomware-Lab is a deliberately limited ransomware simulation for learning how file encryption and recovery work. It includes an encryptor, decryptor, safety controls, and automated tests.
+Ransomware-Lab is a controlled educational simulation of file encryption and
+recovery. The Python source is split into small files for readability, but the
+project builds to **one executable file** containing all three commands:
 
-Use it only on disposable files inside an isolated Linux virtual machine. It does not contain persistence, spreading, privilege escalation, obfuscation, antivirus bypass, networking, or payment handling.
+```text
+ransomware-lab setup
+ransomware-lab encrypt
+ransomware-lab decrypt
+```
 
-## Project files
+The Windows build produces `release\ransomware-lab.exe`. The Linux build
+produces `release/ransomware-lab`. Python is not required on the computer that
+runs the finished executable.
+
+Use this project only in an isolated virtual machine with disposable files. It
+does not include spreading, persistence, privilege escalation, networking,
+obfuscation, antivirus bypass, or payment handling.
+
+## Project structure
 
 | File | Purpose |
 |---|---|
-| `setup_lab.py` | Creates a test directory and its required safety marker. |
-| `encrypt.py` | Generates a random code and encrypts files in the marked directory. |
-| `decrypt.py` | Accepts the code and restores the encrypted files. |
-| `ransomlab/common.py` | Contains shared safety and cryptographic functions. |
-| `tests/test_roundtrip.py` | Contains the automated tests. |
-| `requirements.txt` | Lists the required Python dependency. |
+| `ransomware_lab.py` | Unified entry point packaged into the executable. |
+| `encrypt.py` | Encryption and note-creation functions. |
+| `decrypt.py` | File-restoration functions. |
+| `setup_lab.py` | Standalone source version of the setup command. |
+| `ransomlab/common.py` | Shared cryptography, file, and safety functions. |
+| `build.py` | Builds the unified one-file executable. |
+| `requirements.txt` | Runtime Python dependency. |
+| `requirements-build.txt` | Runtime dependency plus PyInstaller. |
+| `tests/` | Automated tests. |
 
-## Safety rules
+Only the single file under `release/` is the distributable build. The source
+files, build directory, spec file, and virtual environment are not needed to
+run it.
 
-The encryptor only runs when:
+## Safety controls
 
-1. You explicitly provide a target using `--target`.
-2. `setup_lab.py` has placed `.ransomware_lab_safe` in the target.
-3. You provide `--i-understand-this-is-a-lab`.
-4. The target is not `/` or your home directory.
+The executable only encrypts a directory when:
 
-Symbolic links are ignored. The marker file and existing `.ransomlab` files are not encrypted. Never use real, important, shared, mounted, or cloud-synced data.
+1. The directory is explicitly passed with `--target`.
+2. The `setup` command has added `.ransomware_lab_safe` to that directory.
+3. The `--i-understand-this-is-a-lab` flag is supplied.
+4. The target is not the filesystem root or the current user's home directory.
 
-## Linux requirements
+Symbolic links are ignored. Never use real, important, shared, mounted, or
+cloud-synchronized data.
 
-- Linux, such as Kali Linux or Ubuntu
-- Python 3.10 or newer
-- Python virtual-environment support
-- An isolated virtual machine with disposable test data
+## Important build rule
 
-On Kali or Debian, install the required system packages if needed:
+PyInstaller is not a cross-compiler:
 
-```bash
-sudo apt update
-sudo apt install python3 python3-venv python3-pip
+- Build the Windows `.exe` on Windows.
+- Build the Linux executable on Linux.
+
+Running `build.py` on Kali cannot create a Windows `.exe`.
+
+## Build one executable on Windows
+
+### 1. Install Python
+
+Install Python 3.10 or newer and enable **Add Python to PATH** in the installer.
+Open PowerShell and verify it:
+
+```powershell
+py --version
 ```
 
-## Installation
+### 2. Open the project
 
-### 1. Open the project directory
+Change this example path if your project is elsewhere:
+
+```powershell
+cd C:\Ransomware-Lab
+```
+
+### 3. Create the build environment
+
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements-build.txt
+```
+
+If activation is blocked, run this once in the current PowerShell window:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.venv\Scripts\Activate.ps1
+```
+
+### 4. Run the one-file build
+
+```powershell
+python build.py
+```
+
+The final executable is:
+
+```text
+release\ransomware-lab.exe
+```
+
+Confirm that it starts:
+
+```powershell
+.\release\ransomware-lab.exe --version
+.\release\ransomware-lab.exe --help
+```
+
+The entire runnable application is that one `.exe` file.
+
+## Use the executable on Windows
+
+Run these commands only inside an isolated Windows VM.
+
+### 1. Prepare the test directory
+
+```powershell
+.\release\ransomware-lab.exe setup C:\RansomwareLab\test-data
+```
+
+### 2. Create disposable files
+
+```powershell
+Set-Content C:\RansomwareLab\test-data\example.txt "Disposable example"
+New-Item -ItemType Directory -Force C:\RansomwareLab\test-data\nested
+Set-Content C:\RansomwareLab\test-data\nested\second.txt "Second example"
+```
+
+### 3. Encrypt the marked test directory
+
+```powershell
+.\release\ransomware-lab.exe encrypt `
+  --target C:\RansomwareLab\test-data `
+  --note-dir C:\RansomwareLab\note `
+  --i-understand-this-is-a-lab
+```
+
+Example output:
+
+```text
+Encrypted 2 file(s) inside: C:\RansomwareLab\test-data
+Recovery code: ABC123-DEF456-GHI789-JKL012
+Ransomware-Lab note: C:\RansomwareLab\note\RANSOM_NOTE.txt
+```
+
+Save the exact recovery code printed by your run. Every run generates a new
+code. Encrypted file names end in `.ransomlab`.
+
+### 4. Restore the files
+
+```powershell
+.\release\ransomware-lab.exe decrypt --target C:\RansomwareLab\test-data
+```
+
+Paste the generated code when prompted. You can provide it directly for an
+automated demonstration, although it will remain visible in terminal history:
+
+```powershell
+.\release\ransomware-lab.exe decrypt `
+  --target C:\RansomwareLab\test-data `
+  --code ABC123-DEF456-GHI789-JKL012
+```
+
+Replace the example code with the real code from the encryption output.
+
+## Build one executable on Linux
+
+From Kali, Ubuntu, or another Linux system:
 
 ```bash
 cd ~/Desktop/ransomware-lab
-```
-
-Confirm that the project files are present:
-
-```bash
-ls
-```
-
-### 2. Check Python
-
-```bash
-python3 --version
-```
-
-The version must be Python 3.10 or newer.
-
-### 3. Create and activate a virtual environment
-
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
-```
-
-After activation, the terminal prompt normally starts with `(.venv)`.
-
-### 4. Install dependencies
-
-```bash
 python3 -m pip install --upgrade pip
-python3 -m pip install -r requirements.txt
+python3 -m pip install -r requirements-build.txt
+python3 build.py
 ```
 
-Verify the installation:
-
-```bash
-python3 -c "import cryptography; print(cryptography.__version__)"
-```
-
-## Running the simulation
-
-### 1. Prepare a disposable test directory
-
-```bash
-python3 setup_lab.py /tmp/ransomware-lab-test
-```
-
-Expected output:
+The final executable is:
 
 ```text
-Prepared lab directory: /tmp/ransomware-lab-test
-Only place disposable test files in this directory.
+release/ransomware-lab
 ```
 
-The command creates `/tmp/ransomware-lab-test` and adds the hidden `.ransomware_lab_safe` marker required by the encryptor.
+Confirm that it starts:
 
-### 2. Add disposable test files
+```bash
+./release/ransomware-lab --version
+./release/ransomware-lab --help
+```
+
+If virtual-environment creation fails on Kali or Debian:
+
+```bash
+sudo apt update
+sudo apt install python3-venv python3-pip
+```
+
+## Use the executable on Linux
+
+### 1. Prepare the test directory
+
+```bash
+./release/ransomware-lab setup /tmp/ransomware-lab-test
+```
+
+### 2. Create disposable files
 
 ```bash
 printf 'First disposable example\n' > /tmp/ransomware-lab-test/example.txt
@@ -109,230 +217,151 @@ mkdir -p /tmp/ransomware-lab-test/nested
 printf 'Second disposable example\n' > /tmp/ransomware-lab-test/nested/second.txt
 ```
 
-Check the files:
+### 3. Encrypt the files
 
 ```bash
-find /tmp/ransomware-lab-test -type f -print
-```
-
-### 3. Encrypt the test files
-
-Use `/tmp/ransomware-lab-note` for the simulated note so it remains inside the temporary lab area:
-
-```bash
-python3 encrypt.py \
+./release/ransomware-lab encrypt \
   --target /tmp/ransomware-lab-test \
   --note-dir /tmp/ransomware-lab-note \
   --i-understand-this-is-a-lab
 ```
 
-Example output:
+Save the generated recovery code.
 
-```text
-Encrypted 2 file(s) inside: /tmp/ransomware-lab-test
-Recovery code: ABC123-DEF456-GHI789-JKL012
-Ransomware-Lab note: /tmp/ransomware-lab-note/RANSOM_NOTE.txt
-```
-
-The displayed code is only an example. Every run creates a new random code. Save the exact code printed by your run.
-
-After encryption, inspect the file names and note:
+### 4. Restore the files
 
 ```bash
-find /tmp/ransomware-lab-test -type f -print
-cat /tmp/ransomware-lab-note/RANSOM_NOTE.txt
+./release/ransomware-lab decrypt --target /tmp/ransomware-lab-test
 ```
 
-Example encrypted names:
-
-```text
-/tmp/ransomware-lab-test/example.txt.ransomlab
-/tmp/ransomware-lab-test/nested/second.txt.ransomlab
-```
-
-### 4. Decrypt the test files
-
-Run the decryptor without `--code` to use its hidden input prompt:
+Paste the recovery code at the hidden prompt. For an automated demonstration:
 
 ```bash
-python3 decrypt.py --target /tmp/ransomware-lab-test
-```
-
-When `Recovery code:` appears, paste the exact code generated by `encrypt.py` and press Enter.
-
-Successful output:
-
-```text
-Restored 2 file(s) inside: /tmp/ransomware-lab-test
-```
-
-You can instead provide the code directly for an automated demonstration, but it will be visible in terminal history:
-
-```bash
-python3 decrypt.py \
+./release/ransomware-lab decrypt \
   --target /tmp/ransomware-lab-test \
   --code ABC123-DEF456-GHI789-JKL012
 ```
 
-Replace the example with the code from your encryption run. A wrong code causes authentication to fail and leaves the encrypted files unchanged.
+## Run from Python without building
 
-### 5. Check the restored files
+The same unified interface can be run directly from source:
 
 ```bash
-find /tmp/ransomware-lab-test -type f -print
-cat /tmp/ransomware-lab-test/example.txt
-cat /tmp/ransomware-lab-test/nested/second.txt
+python3 ransomware_lab.py --help
+python3 ransomware_lab.py setup /tmp/ransomware-lab-test
+python3 ransomware_lab.py encrypt \
+  --target /tmp/ransomware-lab-test \
+  --note-dir /tmp/ransomware-lab-note \
+  --i-understand-this-is-a-lab
+python3 ransomware_lab.py decrypt --target /tmp/ransomware-lab-test
 ```
 
-## Running the automated tests
+On Windows, replace `python3` with `python` and use Windows paths.
 
-From the project directory with `.venv` active, run:
+## Run the tests
+
+Tests run against temporary directories and do not use the executable:
 
 ```bash
 python3 -m unittest discover -v
 ```
 
-The tests cover text, empty, binary, and nested files; successful restoration; incorrect codes; marker enforcement; note creation; and unique code generation.
+On Windows:
 
-The final output should include:
-
-```text
-Ran 5 tests
-
-OK
+```powershell
+python -m unittest discover -v
 ```
+
+The six tests cover nested, binary, and empty files; successful restoration;
+incorrect codes; safety-marker enforcement; note creation; unique codes; and
+the unified setup command.
 
 ## Command reference
 
-Display the available options without changing files:
-
-```bash
-python3 setup_lab.py --help
-python3 encrypt.py --help
-python3 decrypt.py --help
+```text
+ransomware-lab setup TARGET
+ransomware-lab encrypt --target TARGET --i-understand-this-is-a-lab
+ransomware-lab encrypt --target TARGET --note-dir DIRECTORY --i-understand-this-is-a-lab
+ransomware-lab decrypt --target TARGET
+ransomware-lab decrypt --target TARGET --code CODE
 ```
 
-| Program | Argument | Meaning |
-|---|---|---|
-| `setup_lab.py` | `TARGET` | Creates or marks the disposable test directory. |
-| `encrypt.py` | `--target TARGET` | Selects the marked directory to encrypt. |
-| `encrypt.py` | `--i-understand-this-is-a-lab` | Required safety confirmation. |
-| `encrypt.py` | `--note-dir DIRECTORY` | Selects where `RANSOM_NOTE.txt` is written. |
-| `decrypt.py` | `--target TARGET` | Selects the directory to restore. |
-| `decrypt.py` | `--code CODE` | Optionally supplies the code without a prompt. |
+Use `ransomware-lab COMMAND --help` for command-specific options.
 
 ## Common errors
 
-### `No module named 'cryptography'`
+### `No module named PyInstaller`
 
-```bash
-cd ~/Desktop/ransomware-lab
-source .venv/bin/activate
-python3 -m pip install -r requirements.txt
-```
-
-### Virtual-environment creation fails
-
-```bash
-sudo apt update
-sudo apt install python3-venv
-python3 -m venv .venv
-```
+Activate `.venv` and install `requirements-build.txt`, not only
+`requirements.txt`.
 
 ### `Safety marker missing`
 
-```bash
-python3 setup_lab.py /tmp/ransomware-lab-test
-```
+Run the `setup` command on the exact target path before encryption.
 
 ### `Wrong recovery code or damaged encrypted file`
 
-Use the exact code printed during that encryption run or saved in `RANSOM_NOTE.txt`. A code from another run will not work.
+Use the code generated during that encryption run. A code from another run will
+not work. The encrypted files remain unchanged after a failed attempt.
 
 ### `Restore destination already exists`
 
-A plaintext file already uses the name needed by the decryptor. Move that disposable file out of the test directory and retry. The decryptor deliberately refuses to overwrite it.
+A plaintext file already has the name needed by the decryptor. Move that
+disposable file outside the test directory before retrying. The program refuses
+to overwrite it.
 
-### Python cannot open the script
+### Windows `.exe` does not appear after a Linux build
 
-```bash
-cd ~/Desktop/ransomware-lab
-```
+Build on Windows. PyInstaller packages for the operating system on which it is
+running.
 
 ## Technical explanation
 
-### Encryption
+The project uses a symmetric-only design:
 
-This project uses a symmetric-only design:
-
-1. Python's `secrets` module generates 24 random uppercase letters and digits.
+1. Python's `secrets` module generates a random 24-character recovery code.
 2. Every file receives a new random 16-byte salt.
-3. Scrypt derives a 256-bit key from the recovery code and salt using `N=16384`, `r=8`, and `p=1`.
-4. Every file receives a new random 12-byte nonce.
+3. Scrypt derives a 256-bit key from the code and salt.
+4. Every file receives a random 12-byte nonce.
 5. AES-256-GCM encrypts and authenticates the file content.
 
-The encrypted layout is:
+The encrypted format is:
 
 ```text
 RANSIM01 | 16-byte salt | 12-byte nonce | ciphertext and 16-byte GCM tag
 ```
 
-AES-GCM protects confidentiality and integrity. A wrong code or changed file fails authentication instead of producing damaged plaintext. Temporary output files and atomic replacement reduce the risk of incomplete output.
+The decrypt command reads the salt and nonce, derives the same key from the
+entered code, verifies the GCM tag, and restores the original bytes and name.
+The key is dynamic and not hardcoded or tied to one computer.
 
-### Decryption
-
-The decryptor reads the salt and nonce, derives the same AES key from the entered code, verifies the GCM authentication tag, and restores the original bytes and name. The key is not hardcoded or tied to one computer.
-
-### Symmetric-only limitation
-
-The AES key exists in process memory while the program works, so a capable analyst could potentially extract it. A hybrid AES/RSA system would protect a random AES key using an external RSA public key, while keeping the private key off the affected machine. That more dangerous design is intentionally outside this simple simulation.
-
-## Audit demonstration checklist
-
-- Show that the Linux VM is isolated from production networks and host shares.
-- Use only disposable files under `/tmp/ransomware-lab-test`.
-- Run `python3 -m unittest discover -v`.
-- Show that the encryptor rejects an unmarked directory.
-- Encrypt the marked directory and show the `.ransomlab` files.
-- Show `RANSOM_NOTE.txt` and its generated code.
-- Try an incorrect code and show that restoration is rejected.
-- Enter the correct code and display the restored contents.
-- Repeat the demonstration to show that each run generates a different code.
-
-This repository does not attempt to bypass antivirus products. Detection is an acceptable outcome for this safe educational simulation. Do not disable security tools or add exclusions to conceal it.
+A symmetric key exists in memory while the application works, so this simpler
+model is potentially vulnerable to memory analysis. A hybrid AES/RSA model
+would keep an RSA private key off the affected machine, but that more dangerous
+design is intentionally outside this project.
 
 ## Defensive recommendations
 
-Organizations should:
+- Maintain tested, offline, immutable backups.
+- Use least privilege and network segmentation.
+- Patch operating systems and exposed services.
+- Enable endpoint protection, tamper protection, and centralized logging.
+- Alert on rapid file rewrites, extension changes, and ransom-note creation.
+- Isolate affected systems while preserving forensic evidence.
 
-- keep versioned, offline, immutable backups and test restoration regularly;
-- use least privilege and separate administrator accounts;
-- patch operating systems, browsers, VPNs, and exposed services;
-- enable endpoint detection, tamper protection, and centralized logging;
-- restrict script interpreters and application execution where practical;
-- segment networks and restrict remote file-sharing access;
-- use phishing-resistant MFA;
-- alert on rapid file rewrites, extension changes, and ransom-note creation; and
-- isolate affected systems while preserving forensic evidence.
-
-Defenders can identify this simulation through the `.ransomlab` extension, the `RANSIM01` header, `RANSOM_NOTE.txt`, and rapid file modifications.
+This simulation can be identified by `.ransomlab`, the `RANSIM01` header,
+`RANSOM_NOTE.txt`, and rapid file modifications. It does not attempt to bypass
+security products.
 
 ## Ethical and legal considerations
 
-Encryption code becomes ransomware when it is used without informed permission to deny access to data. Testing must be authorized, restricted to disposable data, and contained in an isolated VM.
-
-Do not deploy this project on another person's computer, production equipment, school or employer systems, shared drives, mounted host folders, cloud-synced folders, or public networks. Do not demand payment, collect data, add persistence, or modify the code to evade defenses.
+Testing must be authorized, restricted to disposable data, and contained in an
+isolated VM. Never deploy this project on another person's computer, production
+equipment, school or employer systems, shared drives, host-mounted directories,
+cloud-synchronized folders, or public networks. Do not add persistence,
+spreading, data collection, payment demands, or defense evasion.
 
 ## Cleanup
 
-After confirming successful restoration, remove the disposable lab directories:
-
-```bash
-rm -rf /tmp/ransomware-lab-test /tmp/ransomware-lab-note
-```
-
-Then deactivate the Python environment:
-
-```bash
-deactivate
-```
+After verifying restoration, delete only the disposable lab data and note. Then
+revert the VM to its clean snapshot.

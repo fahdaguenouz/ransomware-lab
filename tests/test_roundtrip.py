@@ -14,6 +14,7 @@ from ransomlab.common import (
     generate_code,
     resolve_lab_target,
 )
+from ransomware_lab import main as unified_main
 
 
 class RansomwareLabTests(unittest.TestCase):
@@ -77,6 +78,12 @@ class RansomwareLabTests(unittest.TestCase):
         second = generate_code()
         self.assertNotEqual(first, second)
         self.assertEqual([len(part) for part in first.split("-")], [6, 6, 6, 6])
+
+    def test_unified_setup_command_creates_marker(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "unified-lab"
+            self.assertEqual(unified_main(["setup", str(target)]), 0)
+            self.assertTrue((target / MARKER_NAME).is_file())
 
 
 if __name__ == "__main__":
